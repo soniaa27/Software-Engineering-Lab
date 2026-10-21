@@ -40,6 +40,13 @@ class GameEngine:
         """Draws next card and evaluates prediction."""
         self.next_card = self.deck.draw()
         
+        if self.next_card.numeric_rank == self.current_card.numeric_rank:
+            # Tie: a PUSH leaves score and streak untouched.
+            self.status_msg = f"PUSH! {self.next_card.rank_str} vs {self.current_card.rank_str}  No points won or lost"
+            self.status_color = (220, 220, 220)
+            self.current_card = self.next_card
+            return
+
         if guess == "HIGHER":
             correct = self.next_card.numeric_rank > self.current_card.numeric_rank
         else:
