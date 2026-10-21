@@ -2,6 +2,9 @@ import pygame
 from game.deck import Deck
 
 class GameEngine:
+    STREAK_STEP = 2       # correct guesses needed to raise the multiplier
+    MAX_MULTIPLIER = 5
+
     def __init__(self, width, height):
         self.width = width
         self.height = height
@@ -10,6 +13,7 @@ class GameEngine:
         self.current_card = self.deck.draw()
         self.next_card = None
         self.score = 0
+        self.streak = 0
         self.status_msg = "Will the next card be HIGHER or LOWER?"
         self.status_color = (220, 220, 220)
 
@@ -21,6 +25,17 @@ class GameEngine:
         self.font_medium = pygame.font.SysFont(None, 30)
         self.font_small = pygame.font.SysFont(None, 24)
 
+    @classmethod
+    def multiplier_for(cls, streak):
+        """Multiplier earned by the guess that brings the streak to `streak`."""
+        if streak <= 0:
+            return 1
+        return min(1 + (streak - 1) // cls.STREAK_STEP, cls.MAX_MULTIPLIER)
+
+    @property
+    def multiplier(self):
+        return self.multiplier_for(self.streak)
+
     def evaluate_guess(self, guess):
         """Draws next card and evaluates prediction."""
         self.next_card = self.deck.draw()
@@ -30,12 +45,21 @@ class GameEngine:
         else:
             correct = self.next_card.numeric_rank < self.current_card.numeric_rank
         if correct:
-            self.score += 1
-            self.status_msg = f"CORRECT! {self.next_card.rank_str} vs {self.current_card.rank_str}"
+            self.streak += 1
+            points = self.multiplier
+            self.score += points
+            self.status_msg = (
+                f"CORRECT! {self.next_card.rank_str} vs {self.current_card.rank_str}"
+                f"  +{points} (x{points})"
+            )
             self.status_color = (80, 220, 80)
         else:
+            lost_streak = self.streak
+            self.streak = 0
             self.score = max(0, self.score - 1)
             self.status_msg = f"WRONG! {self.next_card.rank_str} vs {self.current_card.rank_str}"
+            if lost_streak >= 2:
+                self.status_msg += f"  Streak of {lost_streak} lost!"
             self.status_color = (235, 75, 75)
 
         self.current_card = self.next_card
@@ -58,6 +82,10 @@ class GameEngine:
 
         score_surf = self.font_medium.render(f"Score: {self.score}", True, (255, 220, 80))
         screen.blit(score_surf, (30, 30))
+
+        streak_color = (255, 150, 50) if self.streak >= 1 + self.STREAK_STEP else (210, 210, 210)
+        streak_surf = self.font_small.render(f"Streak: {self.streak}  x{self.multiplier}", True, streak_color)
+        screen.blit(streak_surf, (30, 60))
 
         rem_surf = self.font_small.render(f"Deck: {self.deck.remaining} left", True, (210, 210, 210))
         screen.blit(rem_surf, (self.width - rem_surf.get_width() - 30, 35))
